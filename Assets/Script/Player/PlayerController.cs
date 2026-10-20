@@ -13,6 +13,12 @@ public class PlayerController : MonoBehaviour
     [SerializeField] private float jumpHeight = 1.5f;
     private Vector3 velocity;
 
+    public float Speed
+    {
+        get => moveSpeed;
+        set => moveSpeed = value;
+    }
+
     [Header("Raycast de Suelo (Ground Check)")]
     [SerializeField] private Transform groundCheck;
     [SerializeField] private float groundDistance = 0.4f;
@@ -60,8 +66,6 @@ public class PlayerController : MonoBehaviour
                 CheckInteractions();
             }
         }
-
-        // Aplicar gravedad
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
     }
