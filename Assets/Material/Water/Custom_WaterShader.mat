@@ -44,12 +44,12 @@ Material:
     - _Speed3: 1.8
     - _Transparency: 0.8
     m_Colors:
-    - _DeepColor: {r: 0, g: 0.24999997, b: 0.8, a: 1}
+    - _DeepColor: {r: 0, g: 0.18120623, b: 1, a: 1}
     - _Direction1: {r: 1, g: 0, b: 0, a: 0}
     - _Direction2: {r: 0, g: 1, b: 0, a: 0}
     - _Direction3: {r: 0.7, g: 0.7, b: 0, a: 0}
-    - _FoamColor: {r: 1, g: 1, b: 1, a: 1}
-    - _FresnelColor: {r: 0.6963332, g: 0.85003024, b: 0.9056604, a: 1}
-    - _ShallowColor: {r: 0.39999998, g: 0.8, b: 1, a: 1}
+    - _FoamColor: {r: 0, g: 0.21154404, b: 1, a: 1}
+    - _FresnelColor: {r: 0.36565503, g: 0.672772, b: 0.7830189, a: 1}
+    - _ShallowColor: {r: 0.24951048, g: 0.64291877, b: 0.8396226, a: 1}
   m_BuildTextureStacks: []
   m_AllowLocking: 1

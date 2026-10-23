@@ -1,212 +1,169 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.AI;
 
 public class EnemyAI : MonoBehaviour
 {
-    public enum AIState { Patrol, Chase, Attack }
+    public enum EnemyState { Patrulla, Busqueda, Ataque }
 
-    [Header("States")]
-    [SerializeField] private AIState currentState = AIState.Patrol;
+    [Header("Estado Actual")]
+    public EnemyState currentState = EnemyState.Patrulla;
 
-    [Header("Detect Settings")]
-    [SerializeField] private float detectionRadius = 8f;
-    [SerializeField] private float attackRadius = 2f;
+    [Header("Componentes y Jugador")]
+    public NavMeshAgent navMeshAgent;
+    public Transform[] destinations;
+    private GameObject player;
 
-    [Header("Patrol Settings")]
-    [SerializeField] private Transform[] patrolPoints;
-    [SerializeField] private float waitTimeAtPoint = 2f;
-    private int currentPatrolIndex;
-    private bool isWaitingAtPoint;
+    [Header("Rangos de Detección")]
+    public float searchRadius = 80f;
+    public float attackRadius = 30f;
 
-    [Header("Attack Settings")]
-    [SerializeField] private float attackCooldown = 1.5f;
-    [SerializeField] private int damageAmount = 20;
-    private bool isAttacking = false;
+    [Header("Configuración de Patrulla")]
+    public bool followPlayer = true;
+    private int currentDestinationIndex = 0;
+    private float distanceToPlayer;
 
-    private NavMeshAgent agent;
-    private Transform playerTransform;
-    private HealthSystem healthSystemPlayer;
-    private Attack attack;
-    private bool isStunned;
+    [Header("Configuración de Búsqueda Aleatoria")]
+    public float searchMoveRadius = 40f;
+    private float searchTimer;
+    public float timeBetweenSearchPoints = 4f;
 
-    private void Awake()
+    [Header("Configuración de Ataque y Disparo")]
+    public float timeBetweenShots = 1.5f;
+    private float shootTimer;
+    public Transform firePoint;
+
+    void Start()
     {
-        agent = GetComponent<NavMeshAgent>();
-        attack = GetComponent<Attack>();
+        if (navMeshAgent == null)
+            navMeshAgent = GetComponent<NavMeshAgent>();
+
+        PlayerController pc = FindFirstObjectByType<PlayerController>();
+        if (pc != null)
+        {
+            player = pc.gameObject;
+        }
+
+        if (destinations.Length > 0 && navMeshAgent != null)
+        {
+            navMeshAgent.destination = destinations[currentDestinationIndex].position;
+        }
     }
 
-    private void Start()
+    void Update()
     {
-        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
-        if (playerObj != null)
+        if (player == null)
         {
-            playerTransform = playerObj.transform;
-            healthSystemPlayer = playerObj.GetComponent<HealthSystem>();
+            PatrolLogic();
+            return;
+        }
+
+        distanceToPlayer = Vector3.Distance(transform.position, player.transform.position);
+
+        if (distanceToPlayer <= attackRadius)
+        {
+            currentState = EnemyState.Ataque;
+            AttackLogic();
+        }
+        else if (distanceToPlayer <= searchRadius && followPlayer)
+        {
+            currentState = EnemyState.Busqueda;
+            SearchLogic();
         }
         else
         {
-            Debug.LogError("No hay GameObjects con tag Player en la escena.");
-        }
-
-        if (patrolPoints.Length > 0)
-        {
-            GoToNextPatrolPoint();
+            currentState = EnemyState.Patrulla;
+            PatrolLogic();
         }
     }
 
-    private void Update()
+    void PatrolLogic()
     {
-        if (agent == null) return;
+        if (destinations.Length == 0 || navMeshAgent == null) return;
 
-        if (isStunned || playerTransform == null || (healthSystemPlayer != null && healthSystemPlayer.IsDead))
+        if (!navMeshAgent.pathPending && navMeshAgent.remainingDistance < 5f)
         {
-            agent.isStopped = true;
-            return;
-        }
-
-        float distanceToPlayer = Vector3.Distance(transform.position, playerTransform.position);
-
-        switch (currentState)
-        {
-            case AIState.Patrol:
-                UpdatePatrolState(distanceToPlayer);
-                break;
-
-            case AIState.Chase:
-                UpdateChaseState(distanceToPlayer);
-                break;
-
-            case AIState.Attack:
-                UpdateAttackState(distanceToPlayer);
-                break;
+            currentDestinationIndex = (currentDestinationIndex + 1) % destinations.Length;
+            navMeshAgent.destination = destinations[currentDestinationIndex].position;
         }
     }
 
-    private void UpdatePatrolState(float distanceToPlayer)
+    void SearchLogic()
     {
-        agent.isStopped = false;
-
-        if (distanceToPlayer <= detectionRadius)
+        if (navMeshAgent != null)
         {
-            currentState = AIState.Chase;
-            return;
-        }
+            searchTimer += Time.deltaTime;
 
-        if (!agent.pathPending && agent.remainingDistance <= agent.stoppingDistance)
-        {
-            if (!isWaitingAtPoint)
+            if (searchTimer >= timeBetweenSearchPoints || navMeshAgent.remainingDistance < 3f)
             {
-                StartCoroutine(WaitAndMoveToNextPoint());
+                searchTimer = 0f;
+                Vector3 randomPoint = GetRandomNavMeshPosition(transform.position, searchMoveRadius);
+                navMeshAgent.destination = randomPoint;
             }
         }
     }
 
-    private void UpdateChaseState(float distanceToPlayer)
+    Vector3 GetRandomNavMeshPosition(Vector3 origin, float distance)
     {
-        agent.isStopped = false;
-        agent.SetDestination(playerTransform.position);
+        Vector3 randomDirection = Random.insideUnitSphere * distance;
+        randomDirection += origin;
 
-        if (distanceToPlayer <= attackRadius)
-        {
-            currentState = AIState.Attack;
-            return;
-        }
+        NavMeshHit navHit;
+        NavMesh.SamplePosition(randomDirection, out navHit, distance, NavMesh.AllAreas);
 
-        if (distanceToPlayer > detectionRadius * 1.2f)
+        return navHit.position;
+    }
+
+    void AttackLogic()
+    {
+        if (navMeshAgent != null && player != null)
         {
-            currentState = AIState.Patrol;
-            GoToNextPatrolPoint();
+            navMeshAgent.destination = transform.position;
+
+            Vector3 directionToPlayer = (player.transform.position - transform.position).normalized;
+            Quaternion lookRotation = Quaternion.LookRotation(new Vector3(directionToPlayer.x, 0, directionToPlayer.z));
+            transform.rotation = Quaternion.Slerp(transform.rotation, lookRotation, Time.deltaTime * 5f);
+
+            shootTimer += Time.deltaTime;
+            if (shootTimer >= timeBetweenShots)
+            {
+                shootTimer = 0f;
+                ShootAtPlayer();
+            }
         }
     }
 
-    private void UpdateAttackState(float distanceToPlayer)
+    void ShootAtPlayer()
     {
-        transform.LookAt(new Vector3(playerTransform.position.x, transform.position.y, playerTransform.position.z));
+        Debug.Log("¡El enemigo disparó al jugador!");
 
-        if (distanceToPlayer > attackRadius && !isAttacking)
+        HealthSystem playerHealth = player.GetComponent<HealthSystem>();
+        if (playerHealth != null)
         {
-            currentState = AIState.Chase;
-            return;
+            playerHealth.TakeDamage(10f);
         }
-
-        if (!isAttacking)
-        {
-            StartCoroutine(AttackCooldown());
-        }
-    }
-
-    IEnumerator AttackCooldown()
-    {
-        isAttacking = true;
-        agent.isStopped = true;
-        ExecuteAttack();
-        yield return new WaitForSeconds(attackCooldown);
-        isAttacking = false;
-        agent.isStopped = false;
-    }
-
-    private void ExecuteAttack()
-    {
-        Debug.Log("Ataque contra el jugador");
-
-        if (GameManager.Instance != null)
-        {
-            GameManager.Instance.TakeDamage(damageAmount);
-        }
-
-        if (attack != null)
-        {
-            attack.Melee();
-        }
-    }
-
-    private IEnumerator WaitAndMoveToNextPoint()
-    {
-        isWaitingAtPoint = true;
-        yield return new WaitForSeconds(waitTimeAtPoint);
-
-        if (patrolPoints.Length > 0)
-        {
-            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
-            GoToNextPatrolPoint();
-        }
-
-        isWaitingAtPoint = false;
-    }
-
-    private void GoToNextPatrolPoint()
-    {
-        if (patrolPoints.Length == 0 || agent == null) return;
-
-        agent.SetDestination(patrolPoints[currentPatrolIndex].position);
     }
 
     private void OnDrawGizmosSelected()
     {
         Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, detectionRadius);
+        Gizmos.DrawWireSphere(transform.position, searchRadius);
 
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, attackRadius);
-    }
 
-    public void Stun(float duration)
-    {
-        StartCoroutine(StunRoutine(duration));
-    }
+        switch (currentState)
+        {
+            case EnemyState.Patrulla:
+                Gizmos.color = Color.cyan;
+                break;
+            case EnemyState.Busqueda:
+                Gizmos.color = Color.yellow;
+                break;
+            case EnemyState.Ataque:
+                Gizmos.color = Color.red;
+                break;
+        }
 
-    private IEnumerator StunRoutine(float duration)
-    {
-        isStunned = true;
-        if (agent != null) agent.isStopped = true;
-        Debug.Log($"[ENEMIGO] Aturdido por {duration} segundos.");
-
-        yield return new WaitForSeconds(duration);
-
-        isStunned = false;
-        if (agent != null) agent.isStopped = false;
-        Debug.Log("[ENEMIGO] Recuperado del aturdimiento.");
+        Gizmos.DrawCube(transform.position + Vector3.up * 10f, new Vector3(3f, 3f, 3f));
     }
 }

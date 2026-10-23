@@ -1,12 +1,16 @@
 using UnityEngine;
 using UnityEngine.InputSystem;
-
+using TMPro;
 public class GameManager : MonoBehaviour
 {
     [Header("Estadísticas del Jugador")]
     [SerializeField] private int maxHealth = 100;
     public int currentHealth { get; private set; }
     public int score { get; private set; }
+    public int enemiesKilled { get; private set; }
+
+    [Header("Interfaz (UI) Opcional")]
+    [SerializeField] private TextMeshProUGUI scoreText;
 
     public static GameManager Instance { get; private set; }
 
@@ -25,13 +29,15 @@ public class GameManager : MonoBehaviour
             Destroy(gameObject);
         }
     }
+
     private void Start()
     {
         currentHealth = maxHealth;
         score = 0;
+        enemiesKilled = 0;
         SetGameState(GameState.Playing);
+        UpdateScoreUI();
     }
-
 
     private void Update()
     {
@@ -64,6 +70,22 @@ public class GameManager : MonoBehaviour
     {
         score += amount;
         Debug.Log("¡Ítem de datos recolectado! Puntaje actual: " + score);
+        UpdateScoreUI();
+    }
+
+    public void AddKills(int amount)
+    {
+        enemiesKilled += amount;
+        Debug.Log($"<color=cyan>¡Enemigo abatido! Bajas totales: {enemiesKilled}</color>");
+        UpdateScoreUI();
+    }
+
+    private void UpdateScoreUI()
+    {
+        if (scoreText != null)
+        {
+            scoreText.text = $"BAJAS: {enemiesKilled} | PUNTOS: {score}";
+        }
     }
 
     public void SetGameState(GameState newState)

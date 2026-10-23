@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.SceneManagement;
 
 public class HealthSystem : MonoBehaviour
 {
@@ -9,16 +10,20 @@ public class HealthSystem : MonoBehaviour
 
     [Header("Interfaz (UI) Opcional")]
     [SerializeField] private Image barraDeVida;
+    [SerializeField] private GameObject gameOverPanel;
 
-    [SerializeField] private bool isDead;
+    private bool isDead;
     public bool IsDead => isDead;
-    public float CurrentHealth => currentHealth;
-    public float MaxHealth => maxHealth;
 
     private void Awake()
     {
         currentHealth = maxHealth;
         isDead = false;
+
+        if (gameOverPanel != null)
+        {
+            gameOverPanel.SetActive(false);
+        }
     }
 
     private void Update()
@@ -38,19 +43,15 @@ public class HealthSystem : MonoBehaviour
 
         Debug.Log($"<color=yellow>Salud actual de {gameObject.name}: {currentHealth}</color>");
 
+        if (CompareTag("Player") && GameManager.Instance != null)
+        {
+            GameManager.Instance.TakeDamage(Mathf.RoundToInt(amount));
+        }
+
         if (currentHealth <= 0f)
         {
             Dead();
         }
-    }
-
-    public void Heal(float amount)
-    {
-        if (isDead) return;
-
-        currentHealth += amount;
-        currentHealth = Mathf.Clamp(currentHealth, 0f, maxHealth);
-        Debug.Log($"<color=green>Salud recuperada: {currentHealth}</color>");
     }
 
     private void Dead()
@@ -60,11 +61,30 @@ public class HealthSystem : MonoBehaviour
 
         if (CompareTag("Player"))
         {
-            // Opcional: Desactivar control o reiniciar
+            if (gameOverPanel != null)
+            {
+                gameOverPanel.SetActive(true);
+            }
+
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.SetGameState(GameManager.GameState.GameOver);
+            }
         }
         else
         {
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.AddKills(1);
+            }
+
             Destroy(gameObject, 0.1f);
         }
+    }
+
+    public void RestartLevel()
+    {
+        Time.timeScale = 1f;
+        SceneManager.LoadScene(SceneManager.GetActiveScene().name);
     }
 }

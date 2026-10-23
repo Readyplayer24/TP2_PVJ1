@@ -9,6 +9,7 @@ public class PlayerController : MonoBehaviour
 
     [Header("Movimiento")]
     [SerializeField] private float moveSpeed = 5f;
+    [SerializeField] private float sprintMultiplier = 1.7f;
     [SerializeField] private float gravity = -9.81f;
     [SerializeField] private float jumpHeight = 1.5f;
     private Vector3 velocity;
@@ -53,8 +54,12 @@ public class PlayerController : MonoBehaviour
             if (Keyboard.current.aKey.isPressed) moveX -= 1f;
             if (Keyboard.current.dKey.isPressed) moveX += 1f;
 
+            bool isSprinting = Keyboard.current.leftShiftKey.isPressed || Keyboard.current.rightShiftKey.isPressed;
+
+            float currentSpeed = isSprinting ? moveSpeed * sprintMultiplier : moveSpeed;
+
             Vector3 move = transform.right * moveX + transform.forward * moveZ;
-            controller.Move(move * moveSpeed * Time.deltaTime);
+            controller.Move(move * currentSpeed * Time.deltaTime);
 
             if (Keyboard.current.spaceKey.wasPressedThisFrame && isGrounded)
             {
@@ -66,6 +71,7 @@ public class PlayerController : MonoBehaviour
                 CheckInteractions();
             }
         }
+
         velocity.y += gravity * Time.deltaTime;
         controller.Move(velocity * Time.deltaTime);
     }
